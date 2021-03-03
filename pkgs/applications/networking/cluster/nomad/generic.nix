@@ -1,11 +1,13 @@
 { lib
 , buildGoPackage
 , fetchFromGitHub
+, makeWrapper
 , version
 , sha256
 , nvidiaGpuSupport
 , patchelf
 , nvidia_x11
+, cni-plugins
 }:
 
 buildGoPackage rec {
@@ -22,9 +24,9 @@ buildGoPackage rec {
     inherit rev sha256;
   };
 
-  nativeBuildInputs = lib.optionals nvidiaGpuSupport [
-    patchelf
-  ];
+  nativeBuildInputs =
+    [ makeWrapper ]
+    ++ lib.optionals nvidiaGpuSupport [ patchelf ];
 
   # ui:
   #  Nomad release commits include the compiled version of the UI, but the file
@@ -46,6 +48,11 @@ buildGoPackage rec {
     for bin in $out/bin/*; do
       patchelf --add-needed "${nvidia_x11}/lib/libnvidia-ml.so" "$bin"
     done
+  '';
+
+  postInstall = ''
+    wrapProgram $out/bin/nomad \
+      --prefix CNI_PATH : "${cni-plugins}/bin"
   '';
 
   meta = with lib; {
